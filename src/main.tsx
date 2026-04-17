@@ -365,6 +365,7 @@ function App() {
                     inputMode="decimal"
                     value={getDraftValue(term, "coefficient")}
                     placeholder={formatNumber(term.coefficient)}
+                    onFocus={(event) => event.target.select()}
                     onChange={(event) => updateTerm(term.id, "coefficient", event.target.value)}
                   />
                 </label>
@@ -376,6 +377,7 @@ function App() {
                     inputMode="numeric"
                     value={getDraftValue(term, "power")}
                     placeholder={formatNumber(term.power)}
+                    onFocus={(event) => event.target.select()}
                     onChange={(event) => updateTerm(term.id, "power", event.target.value)}
                   />
                 </label>
