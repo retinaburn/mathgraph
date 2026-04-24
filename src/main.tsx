@@ -24,6 +24,7 @@ type Point = {
 };
 
 type DraftValues = Record<string, Partial<Record<"coefficient" | "power", string>>>;
+type NonEmptyArray<T> = [T, ...T[]];
 
 type SymbolInputProps = {
   label: string;
@@ -32,7 +33,7 @@ type SymbolInputProps = {
   onChange: (value: string) => void;
 };
 
-const presets: Preset[] = [
+const presets: NonEmptyArray<Preset> = [
   {
     id: "quadratic",
     name: "Quadratic",
@@ -106,9 +107,17 @@ function parseInputSet(input: string) {
   );
 
   if (rangeMatch) {
-    const start = Number(rangeMatch[1]);
-    const end = Number(rangeMatch[2]);
-    const step = Number(rangeMatch[3]);
+    const startText = rangeMatch[1];
+    const endText = rangeMatch[2];
+    const stepText = rangeMatch[3];
+
+    if (!startText || !endText || !stepText) {
+      return { values: [], error: "Use a range like from -6 to 6 by 1." };
+    }
+
+    const start = Number(startText);
+    const end = Number(endText);
+    const step = Number(stepText);
 
     if (!Number.isFinite(start) || !Number.isFinite(end) || !Number.isFinite(step) || step <= 0) {
       return { values: [], error: "Use a positive step, like from -6 to 6 by 1." };
@@ -215,7 +224,7 @@ function VariablePower({ variable, power }: { variable: string; power: number })
 }
 
 function makeId() {
-  return crypto.randomUUID ? crypto.randomUUID() : `term-${Date.now()}-${Math.random()}`;
+  return globalThis.crypto?.randomUUID?.() ?? `term-${Date.now()}-${Math.random()}`;
 }
 
 function normalizeSymbol(value: string, fallback: string) {
@@ -310,7 +319,8 @@ function App() {
   function removeTerm(id: string) {
     setTerms((currentTerms) => currentTerms.filter((term) => term.id !== id));
     setDraftValues((currentDrafts) => {
-      const { [id]: _removed, ...remainingDrafts } = currentDrafts;
+      const remainingDrafts = { ...currentDrafts };
+      delete remainingDrafts[id];
       return remainingDrafts;
     });
   }
@@ -571,7 +581,8 @@ function drawGraph(
   const padding = { top: 34, right: 28, bottom: 46, left: 58 };
   const graphWidth = width - padding.left - padding.right;
   const graphHeight = height - padding.top - padding.bottom;
-  const xValues = points.map((point) => point.x);
+  const finitePoints = points.filter((point) => Number.isFinite(point.x) && Number.isFinite(point.y));
+  const xValues = finitePoints.map((point) => point.x);
   const xMin = Math.min(-5, ...xValues);
   const xMax = Math.max(5, ...xValues);
   const xSpan = Math.max(1, xMax - xMin);
@@ -581,7 +592,7 @@ function drawGraph(
     const x = curveStart + ((curveEnd - curveStart) * index) / 179;
     return { x, y: evaluate(terms, x) };
   }).filter((point) => Number.isFinite(point.y));
-  const allY = [...points, ...curve].map((point) => point.y);
+  const allY = [...finitePoints, ...curve].map((point) => point.y);
   const rawYMin = Math.min(-5, ...allY);
   const rawYMax = Math.max(5, ...allY);
   const ySpan = Math.max(1, rawYMax - rawYMin);
@@ -609,9 +620,11 @@ function drawGraph(
       context.lineTo(x, y);
     }
   });
-  context.stroke();
+  if (curve.length) {
+    context.stroke();
+  }
 
-  points.forEach((point) => {
+  finitePoints.forEach((point) => {
     const x = toCanvasX(point.x);
     const y = toCanvasY(point.y);
     context.fillStyle = "#f25f4c";
